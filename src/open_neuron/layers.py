@@ -128,3 +128,36 @@ class Layer:
             f"inputs: {self.Inputs[-1]}, activation: {self.activation.__name__}, "
             f"output (a): {self.A[-1]}"
         )
+
+
+class Dropout:
+    """Случайно отключать долю входных значений во время обучения.
+
+    При обучении слой сохраняет маску и масштабирует оставшиеся значения,
+    чтобы их ожидаемый масштаб не менялся. При предсказании вход проходит
+    без изменений. У слоя нет обучаемых параметров.
+    """
+
+    def __init__(self, dropout_rate=0.5):
+        self.dropout_rate = dropout_rate
+        self.mask = None
+
+    def initialize(self, input_size):
+        """Вернуть размер входа без изменений."""
+        return input_size
+
+    def forward(self, Inputs, training=True):
+        """Применить случайную маску при обучении или пропустить вход."""
+        if training:
+            self.mask = np.random.binomial(
+                1, 1 - self.dropout_rate, size=Inputs.shape
+            )
+            return Inputs * self.mask / (1 - self.dropout_rate)
+        return Inputs
+
+    def backward(self, delta):
+        """Передать градиент только через значения, оставленные маской."""
+        return delta * self.mask / (1 - self.dropout_rate)
+
+    def update(self, optimizer):
+        """Ничего не обновлять: Dropout не содержит параметров."""
