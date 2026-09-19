@@ -59,8 +59,6 @@ class Adam(Optimizer):
         learning_rate=0.1,
         beta1=0.9,
         beta2=0.999,
-        initial_step=1,
-        gradient_threshold=False,
     ):
         self.m = {"weights": {}, "bias": {}}
         self.v = {"weights": {}, "bias": {}}
@@ -69,8 +67,6 @@ class Adam(Optimizer):
         self.epsilon = 1e-8
         self.t = {}
         self.learning_rate = learning_rate
-        self.step = initial_step
-        self.gradient_threshold = gradient_threshold
 
     def update(self, layer):
         """Обновить параметры слоя, сохранив его собственные моменты Adam."""
@@ -79,13 +75,6 @@ class Adam(Optimizer):
             state["bias"].setdefault(layer.id, np.zeros_like(layer.bias))
 
         self.t[layer.id] = self.t.get(layer.id, 0) + 1
-        if self.gradient_threshold:
-            gradient_norm = np.linalg.norm(layer.gradient["weights"]) + np.linalg.norm(
-                layer.gradient["bias"]
-            )
-            if gradient_norm > self.gradient_threshold:
-                self.t[layer.id] += self.step
-
         timestep = self.t[layer.id]
         for parameter in ("weights", "bias"):
             gradient = layer.gradient[parameter]
