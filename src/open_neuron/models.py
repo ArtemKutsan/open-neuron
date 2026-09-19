@@ -65,6 +65,12 @@ class NeuralNetwork:
         values = X
         for layer in self.layers:
             values = layer.forward(values, training=training)
+        # Старый отладочный вывод значений Z и A выходного слоя.
+        # Отладочный вывод
+        # if training:
+        #     print(f'Z нейронов выходного слоя в методе forward всей сети:\n{self.last_layer.Z}')
+        #     print(f'Активация (A) выходного слоя в методе forward всей сети:\n{self.last_layer.A}')
+        #
         return values
 
     def backward(self, error):

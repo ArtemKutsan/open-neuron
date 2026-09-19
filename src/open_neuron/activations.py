@@ -101,3 +101,31 @@ def softmax(values, *, derivative=False):
     shifted = values - np.max(values, axis=-1, keepdims=True)
     exponentials = np.exp(shifted)
     return exponentials / np.sum(exponentials, axis=-1, keepdims=True)
+
+
+# Исторический вариант реестра активаций. Восстановлен как комментарий.
+# В исходнике неизвестное имя возвращало строку; здесь показана корректная ошибка.
+# Остальные имена оставлены как исторический перечень: часть функций не входит в текущий API.
+#
+# Словарь с функциями активации
+# activation_functions = {
+#     'sigmoid': sigmoid,
+#     'tanh': tanh,
+#     'relu': relu,
+#     'leaky_relu': leaky_relu,
+#     'prelu': prelu,
+#     'gelu': gelu,
+#     'elu': elu,
+#     'selu': selu,
+#     'swish': swish,
+#     'softplus': softplus,
+#     'softmax': softmax,
+#     'linear': linear,
+#     'heaviside': heaviside,
+# }
+#
+# Функция для получения активационной функции по имени
+# def get(activation_name):
+#     if activation_name is None:
+#         return linear
+#     raise ValueError(f"Unknown activation function: {activation_name}")
