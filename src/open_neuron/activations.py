@@ -1,10 +1,10 @@
-"""Поэлементные функции активации и их производные.
+"""Функции активации для слоёв полносвязной сети.
 
-Функции принимают число или массив ``values``. В полносвязном слое это обычно
-результат линейного преобразования ``Z = X @ W + b``. Если передать
-``derivative=True``, функция вернёт производную активации по ``Z`` для каждого
-элемента. При обратном распространении её умножают на входящий градиент:
-``dL/dZ = dL/dA * f'(Z)``.
+``sigmoid``, ``tanh``, ``relu`` и ``linear`` применяются поэлементно. ``softmax``
+нормализует значения вдоль последней оси, связывая выходы классов одного
+примера. Для поэлементных активаций ``derivative=True`` возвращает производную
+по ``Z``. Для softmax единицы обозначают только соглашение с уже объединённым
+градиентом categorical cross-entropy; это не общая производная softmax.
 
 Звёздочка в сигнатуре делает ``derivative`` именованным параметром: его нужно
 передавать как ``sigmoid(values, derivative=True)``.
@@ -76,3 +76,28 @@ def linear(values, *, derivative=False):
         return np.ones_like(values, dtype=float)
 
     return values
+
+
+def softmax(values, *, derivative=False):
+    """Преобразовать logits в вероятности вдоль последней оси.
+
+    Для пакета формы ``(batch_size, class_count)`` каждая строка независимо
+    преобразуется в распределение вероятностей. Вычитание максимального logit
+    сохраняет результат и предотвращает переполнение экспоненты.
+
+    Если ``derivative=True``, возвращаются единицы только для совместимости с
+    fused-градиентом categorical cross-entropy: ``dL/dZ = probabilities - y``.
+    Это соглашение не является производной softmax для произвольного входящего
+    градиента; общий градиент softmax требует якобиан-векторного произведения.
+    """
+    values = np.asarray(values)
+
+    if values.ndim == 0 or values.shape[-1] == 0:
+        raise ValueError("Softmax требует непустой оси классов")
+
+    if derivative:
+        return np.ones_like(values, dtype=np.result_type(values.dtype, np.float64))
+
+    shifted = values - np.max(values, axis=-1, keepdims=True)
+    exponentials = np.exp(shifted)
+    return exponentials / np.sum(exponentials, axis=-1, keepdims=True)
