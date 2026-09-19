@@ -18,8 +18,10 @@ class Layer:
     ``(input_size, output_size)``, а смещения — ``(1, output_size)``.
 
     Прямой проход вычисляет ``Z = X @ W + b`` и затем ``A = activation(Z)``.
-    Объекты ``Unit`` дают доступ к параметрам отдельных нейронов, но расчёт
-    выполняет слой сразу для всей матрицы.
+    Обратный проход получает градиент по ``A``, применяет производную активации
+    и вычисляет градиенты по входу, весам и смещениям. Объекты ``Unit`` дают
+    доступ к параметрам отдельных нейронов, но расчёт выполняет слой сразу
+    для всей матрицы.
     """
 
     count = 0
@@ -86,6 +88,32 @@ class Layer:
         self.Z = self.Inputs @ self.weights + biases
         self.A = self.activation(self.Z)
         return self.A
+
+    def activation_derivative(self, Z):
+        """Вычислить производную функции активации для значений ``Z``."""
+        return self.activation(Z, derivative=True)
+
+    def backward(self, delta):
+        """Передать градиент через слой и сохранить градиенты параметров.
+
+        ``delta`` — градиент потерь по выходу слоя, формы
+        ``(batch_size, output_size)``. Слой применяет цепное правило:
+
+        - ``dL/dZ = delta * activation'(Z)``;
+        - ``dL/dW = X.T @ dL/dZ``;
+        - ``dL/db = sum(dL/dZ, axis=0)``;
+        - возвращает ``dL/dX = dL/dZ @ W.T``.
+
+        Масштабирование по размеру пакета здесь не выполняется: входящий
+        градиент уже задаёт масштаб, как и в исходной реализации.
+        """
+        derivatives = self.activation_derivative(self.Z)
+        self.delta = delta * derivatives
+
+        self.gradient["weights"] = self.Inputs.T @ self.delta
+        self.gradient["bias"] = np.sum(self.delta, axis=0, keepdims=True)
+
+        return self.delta @ self.weights.T
 
     def __str__(self):
         return (
