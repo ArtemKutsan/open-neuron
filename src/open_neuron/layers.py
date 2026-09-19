@@ -118,6 +118,10 @@ class Layer:
 
         return self.delta @ self.weights.T
 
+    def update(self, optimizer):
+        """Поручить оптимизатору обновить параметры этого слоя."""
+        optimizer.update(self)
+
     def __str__(self):
         return (
             f"{self.name} {self.number}, neurons: {len(self.neurons)}, "
