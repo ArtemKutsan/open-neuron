@@ -96,10 +96,13 @@ class Layer:
     def backward(self, delta):
         """Передать градиент через слой и сохранить градиенты параметров.
 
-        ``delta`` — градиент потерь по выходу слоя, формы
-        ``(batch_size, output_size)``. Слой применяет цепное правило:
+        ``delta`` имеет форму ``(batch_size, output_size)``. Для обычных
+        поэлементных активаций это градиент по выходу ``A``. Для сочетания
+        categorical cross-entropy и softmax это уже fused-градиент по ``Z``;
+        softmax передаёт его без дополнительного якобиана. Слой вычисляет:
 
-        - ``dL/dZ = delta * activation'(Z)``;
+        - для поэлементной активации ``dL/dZ = delta * activation'(Z)``;
+        - для fused softmax и categorical cross-entropy ``delta`` уже равен ``dL/dZ``;
         - ``dL/dW = X.T @ dL/dZ``;
         - ``dL/db = sum(dL/dZ, axis=0)``;
         - возвращает ``dL/dX = dL/dZ @ W.T``.
