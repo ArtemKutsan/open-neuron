@@ -1,6 +1,6 @@
 """Функции активации для слоёв полносвязной сети.
 
-``sigmoid``, ``tanh``, ``relu`` и ``linear`` применяются поэлементно. ``softmax``
+Все активации, кроме ``softmax``, применяются поэлементно. ``softmax``
 нормализует значения вдоль последней оси, связывая выходы классов одного
 примера. Для поэлементных активаций ``derivative=True`` возвращает производную
 по ``Z``. Для softmax единицы обозначают только соглашение с уже объединённым
@@ -64,6 +64,134 @@ def relu(values, *, derivative=False):
     return np.maximum(values, 0.0)
 
 
+def leaky_relu(values, *, derivative=False, alpha=0.01):
+    """Вычислить Leaky ReLU с заданным наклоном отрицательной ветви.
+
+    ``f(z) = z`` при ``z > 0`` и ``alpha * z`` иначе. В точке излома
+    ``z = 0`` производная не определена; здесь используется значение ``alpha``.
+    """
+    values = np.asarray(values)
+
+    if derivative:
+        return np.where(values > 0, 1.0, alpha)
+
+    return np.where(values > 0, values, alpha * values)
+
+
+def prelu(values, *, derivative=False, alpha=0.01):
+    """Вычислить PReLU с фиксированным, задаваемым вызывающим кодом ``alpha``.
+
+    ``alpha`` здесь не обучается: функция возвращает только значение и
+    производную по входу. В точке ``z = 0`` используется наклон ``alpha``.
+    """
+    return leaky_relu(values, derivative=derivative, alpha=alpha)
+
+
+def gelu(values, *, derivative=False):
+    """Вычислить GELU tanh-аппроксимацией и её производную.
+
+    Используется ``0.5 * z * (1 + tanh(sqrt(2/pi) *
+    (z + 0.044715 * z**3)))``. Производная вычисляется для этой же
+    аппроксимации. Ограничение аргумента tanh предотвращает переполнение
+    кубического члена на очень больших конечных входах; за пределами диапазона
+    ``[-10, 10]`` tanh уже численно насыщен.
+    """
+    values = np.asarray(values)
+    values = values.astype(np.result_type(values.dtype, np.float64), copy=False)
+    safe_values = np.clip(values, -10.0, 10.0)
+    scale = np.sqrt(2.0 / np.pi)
+    cubic_coefficient = 0.044715
+    tanh_value = np.tanh(
+        scale * (safe_values + cubic_coefficient * np.power(safe_values, 3))
+    )
+
+    if derivative:
+        tanh_derivative = scale * (
+            1.0 + 3.0 * cubic_coefficient * np.square(safe_values)
+        )
+        return (
+            0.5 * (1.0 + tanh_value)
+            + 0.5 * values * (1.0 - np.square(tanh_value)) * tanh_derivative
+        )
+
+    return 0.5 * values * (1.0 + tanh_value)
+
+
+def elu(values, *, derivative=False):
+    """Вычислить ELU с ``alpha = 1`` или её производную.
+
+    На отрицательной ветви используется ``exp(z) - 1``; экспонента
+    ограничивается сверху нулём, чтобы положительные входы не вызывали
+    лишнее переполнение в невыбранной ветви ``numpy.where``.
+    """
+    values = np.asarray(values)
+    negative_exponential = np.exp(np.minimum(values, 0.0))
+
+    if derivative:
+        return np.where(values > 0, 1.0, negative_exponential)
+
+    return np.where(values > 0, values, np.expm1(np.minimum(values, 0.0)))
+
+
+def selu(values, *, derivative=False):
+    """Вычислить SELU с рекомендованными константами ``alpha`` и ``scale``.
+
+    В нуле производная не определена; здесь выбирается производная
+    отрицательной ветви. Экспонента ограничивается нулём сверху, чтобы
+    положительные входы не вызывали переполнение в невыбранной ветви.
+    """
+    values = np.asarray(values)
+    alpha = 1.6732632423543772
+    scale = 1.0507009873554805
+    negative_exponential = np.exp(np.minimum(values, 0.0))
+
+    if derivative:
+        return np.where(values > 0, scale, scale * alpha * negative_exponential)
+
+    negative_values = alpha * np.expm1(np.minimum(values, 0.0))
+    return scale * np.where(values > 0, values, negative_values)
+
+
+def swish(values, *, derivative=False):
+    """Вычислить Swish, ``z * sigmoid(z)``, или её производную."""
+    values = np.asarray(values)
+    sigmoid_values = sigmoid(values)
+
+    if derivative:
+        return sigmoid_values + values * sigmoid_values * (1.0 - sigmoid_values)
+
+    return values * sigmoid_values
+
+
+def softplus(values, *, derivative=False):
+    """Вычислить устойчивую Softplus или её производную.
+
+    ``log(1 + exp(z))`` вычисляется через ``numpy.logaddexp``, а производная
+    равна сигмоиде.
+    """
+    values = np.asarray(values)
+
+    if derivative:
+        return sigmoid(values)
+
+    return np.logaddexp(0.0, values)
+
+
+def heaviside(values, *, derivative=False, threshold=0.5):
+    """Вычислить ступенчатую функцию с указанным порогом.
+
+    Производная равна нулю всюду, где она определена, поэтому эта активация
+    не обучается обычным backprop. В точке порога скачок не дифференцируем; для
+    обратного прохода выбрана производная ноль.
+    """
+    values = np.asarray(values)
+
+    if derivative:
+        return np.zeros_like(values, dtype=float)
+
+    return np.where(values >= threshold, 1.0, 0.0)
+
+
 def linear(values, *, derivative=False):
     """Вернуть вход без изменений или массив единиц как производную.
 
@@ -101,31 +229,3 @@ def softmax(values, *, derivative=False):
     shifted = values - np.max(values, axis=-1, keepdims=True)
     exponentials = np.exp(shifted)
     return exponentials / np.sum(exponentials, axis=-1, keepdims=True)
-
-
-# Исторический вариант реестра активаций. Восстановлен как комментарий.
-# В исходнике неизвестное имя возвращало строку; здесь показана корректная ошибка.
-# Остальные имена оставлены как исторический перечень: часть функций не входит в текущий API.
-#
-# Словарь с функциями активации
-# activation_functions = {
-#     'sigmoid': sigmoid,
-#     'tanh': tanh,
-#     'relu': relu,
-#     'leaky_relu': leaky_relu,
-#     'prelu': prelu,
-#     'gelu': gelu,
-#     'elu': elu,
-#     'selu': selu,
-#     'swish': swish,
-#     'softplus': softplus,
-#     'softmax': softmax,
-#     'linear': linear,
-#     'heaviside': heaviside,
-# }
-#
-# Функция для получения активационной функции по имени
-# def get(activation_name):
-#     if activation_name is None:
-#         return linear
-#     raise ValueError(f"Unknown activation function: {activation_name}")
