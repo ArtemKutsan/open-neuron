@@ -61,6 +61,8 @@ class Layer:
 
         self.num_neurons = self.output_size
 
+        # Каждый Unit получает представление своего столбца, а слой продолжает
+        # обновлять общие матрицы. При замене матриц эти представления устареют.
         # Столбцы весов и смещений остаются общими с массивами параметров слоя.
         for index, (neuron, weights, bias) in enumerate(
             zip(self.neurons, self.weights.T, self.bias.T)
@@ -77,16 +79,8 @@ class Layer:
             )
             neuron.activation = unit_activation
 
-            # Старый вариант: индивидуальная активация Unit; сохранён для сравнения.
-            # Он предполагает, что каждый Unit хранит собственную настройку активации.
-            #  # Старый вариант с учетом активации каждого нейрона. Также необходимо изменить вычисление derivatives в forward.
-            #             # Попутно проверяем активации нейрона и если она равна None то устанавливаем ему активацию слоя
-            #             if neuron.activation is None:
-            #                 if self.activation == softmax:
-            #                     neuron.activation = linear  # активация нейронов слоя softmax не нужна, то есть A = Z
-            #                 else:
-            #                     neuron.activation = self.activation  # если у нейрона не установлена активация то ставим ему активацию слоя
-            #
+            # Индивидуальные активации потребовали бы отдельной производной
+            # для каждого Unit; здесь слой применяет одну функцию ко всей матрице.
 
         return self.output_size
 
@@ -99,26 +93,6 @@ class Layer:
         self.Z = self.Inputs @ self.weights + biases
         self.A = self.activation(self.Z)
 
-        # Старый отладочный вывод матричного прямого прохода.
-        #  # Отладка
-        #         if training:
-        #             print(f'Z слоя {self.number} для батча вычисленное матрично:\n{self.Z.T}, {self.Z.dtype}')
-        #             print(f'A слоя {self.number} для батча (одна общая активация слоя для всех нейронов в слое):\n{self.A.T}')
-        #
-
-        # Альтернативный старый расчёт через отдельный прямой проход каждого нейрона.
-        # Он не работает с текущим Unit: Unit только предоставляет доступ к параметрам слоя.
-        #  # Матрица Z вычисляется с учетом настройки bias каждого нейрона, матрица A вычисляется с учетом настройки активации каждого нейрона
-        #         Z, A = [], []
-        #         for neuron in self.neurons:
-        #             neuron.forward(Inputs, training)
-        #             Z.append(neuron.Z)
-        #             A.append(neuron.A)
-        #         self.Z = np.array(Z).T  # матрица Z значений z всех нейронов в слое (для матричных вычислений)
-        #         self.A = np.array(A).T  # матрица A активаций a всех нейронов в слое (для матричных вычислений)
-        #         # print('Вычисленное в нейронах Z:', self.Z, self.Z.dtype)
-        #         # print('Активация каждого нейрона отдельно A:', self.A)
-        #
         return self.A
 
     def activation_derivative(self, Z):

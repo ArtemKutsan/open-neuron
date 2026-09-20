@@ -65,12 +65,6 @@ class NeuralNetwork:
         values = X
         for layer in self.layers:
             values = layer.forward(values, training=training)
-        # Старый отладочный вывод значений Z и A выходного слоя.
-        # Отладочный вывод
-        # if training:
-        #     print(f'Z нейронов выходного слоя в методе forward всей сети:\n{self.last_layer.Z}')
-        #     print(f'Активация (A) выходного слоя в методе forward всей сети:\n{self.last_layer.A}')
-        #
         return values
 
     def backward(self, error):
@@ -149,6 +143,8 @@ class NeuralNetwork:
 
                 error = self.loss_function.evaluate_error(y_batch, predictions)
                 batch_loss = self.loss_function.evaluate_loss(y_batch, predictions)
+                # Учитываем размер батча, чтобы последний неполный батч
+                # не влиял на среднюю потерю так же сильно, как полный.
                 total_epoch_loss += batch_loss * len(X_batch)
 
                 self.backward(error)

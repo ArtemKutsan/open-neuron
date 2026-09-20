@@ -116,9 +116,11 @@ class Neuron:
 
     def backward(self, error):
         """Вычислить градиенты весов и смещения по пакету примеров."""
+        # Цепное правило переносит градиент потерь через функцию активации к Z.
         self.delta = self.loss_function.loss_derivative(error) * (
             self.activation_derivative(self.Z)
         )
+        # Градиенты параметров суммируют вклад всех примеров пакета.
         self.gradient["weights"] = self.Inputs.T @ self.delta
         self.gradient["bias"] = np.sum(self.delta, axis=0, keepdims=True)
 
