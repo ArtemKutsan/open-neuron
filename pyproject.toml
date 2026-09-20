@@ -9,5 +9,8 @@ description = "An educational NumPy implementation of fully connected neural net
 readme = "README.md"
 dependencies = ["numpy"]
 
+[project.optional-dependencies]
+tensorflow = ["tensorflow-cpu>=2.21,<2.22"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
