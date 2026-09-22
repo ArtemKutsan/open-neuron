@@ -44,7 +44,7 @@ class Neuron:
       )
     self.optimizer = optimizer if optimizer is not None else SGD(momentum=0)
     self.delta = None
-    self.gradient = {"weights": None, "bias": None}
+    self.gradients = {"weights": None, "bias": None}
     self.epochs = None
     self.batch_size = None
     self.final_batch_size = None
@@ -131,7 +131,7 @@ class Neuron:
   def backward(self, error):
     """По ошибке выхода вычислить производные потерь по параметрам.
 
-    Метод сохраняет производные в ``self.gradient`` для последующего вызова
+    Метод сохраняет производные в ``self.gradients`` для последующего вызова
     ``update``. Сам параметры не меняет и значения не возвращает.
     """
     # error — разница между предсказанием A и правильным ответом y. Например,
@@ -169,11 +169,11 @@ class Neuron:
     # dL/dw_1 = -2*1 = -2, а dL/dw_2 = -2*0 = 0. Первый вес влияет на выход,
     # второй при таком входе не влияет. Для пакета матричная запись этой суммы
     # — X.T @ delta; усреднение MSE уже учтено функцией loss_derivative.
-    self.gradient["weights"] = self.Inputs.T @ self.delta
+    self.gradients["weights"] = self.Inputs.T @ self.delta
     # Смещение b прибавляется к каждому z с коэффициентом 1, значит его
     # производная по каждому примеру равна delta этого примера. Складываем
     # вклады пакета; keepdims сохраняет форму строки bias.
-    self.gradient["bias"] = np.sum(self.delta, axis=0, keepdims=True)
+    self.gradients["bias"] = np.sum(self.delta, axis=0, keepdims=True)
 
   def update(self):
     """Поручить оптимизатору обновить параметры нейрона."""

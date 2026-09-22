@@ -28,14 +28,14 @@ class SGD(Optimizer):
     self.m["bias"].setdefault(layer.id, np.zeros_like(layer.bias))
 
     weight_update = (
-        self.learning_rate * layer.gradient["weights"]
+        self.learning_rate * layer.gradients["weights"]
         + self.momentum * self.m["weights"][layer.id]
     )
     layer.weights -= weight_update
     self.m["weights"][layer.id] = weight_update
 
     bias_update = (
-        self.learning_rate * layer.gradient["bias"]
+        self.learning_rate * layer.gradients["bias"]
         + self.momentum * self.m["bias"][layer.id]
     )
     has_bias = np.where(layer.bias != None)
@@ -77,7 +77,7 @@ class Adam(Optimizer):
     self.t[layer.id] = self.t.get(layer.id, 0) + 1
     timestep = self.t[layer.id]
     for parameter in ("weights", "bias"):
-      gradient = layer.gradient[parameter]
+      gradient = layer.gradients[parameter]
       self.m[parameter][layer.id] = (
           self.beta1 * self.m[parameter][layer.id]
           + (1 - self.beta1) * gradient

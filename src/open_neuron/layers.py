@@ -38,7 +38,7 @@ class Layer:
     self.activation = activation if activation is not None else linear
     self.A = None
     self.delta = None
-    self.gradient = {"weights": None, "bias": None}
+    self.gradients = {"weights": None, "bias": None}
     self.neurons = neurons
     self.num_neurons = None
 
@@ -118,8 +118,8 @@ class Layer:
     derivatives = self.activation_derivative(self.Z)
     self.delta = delta * derivatives
 
-    self.gradient["weights"] = self.Inputs.T @ self.delta
-    self.gradient["bias"] = np.sum(self.delta, axis=0, keepdims=True)
+    self.gradients["weights"] = self.Inputs.T @ self.delta
+    self.gradients["bias"] = np.sum(self.delta, axis=0, keepdims=True)
 
     return self.delta @ self.weights.T
 
