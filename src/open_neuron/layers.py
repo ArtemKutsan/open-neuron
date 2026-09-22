@@ -144,6 +144,12 @@ class Dropout:
   """
 
   def __init__(self, dropout_rate=0.5):
+    if (
+        not isinstance(dropout_rate, (int, float, np.integer, np.floating))
+        or not np.isfinite(dropout_rate)
+        or not 0 <= dropout_rate < 1
+    ):
+      raise ValueError("dropout_rate должен быть в диапазоне [0, 1)")
     self.dropout_rate = dropout_rate
     self.mask = None
 

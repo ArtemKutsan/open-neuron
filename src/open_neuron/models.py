@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from open_neuron.activations import sigmoid
+from open_neuron.activations import sigmoid, softmax
 from open_neuron.layers import Layer
 from open_neuron.losses import CE, MAE, MSE
 from open_neuron.optimizers import SGD
@@ -20,12 +20,19 @@ class NeuralNetwork:
     Layer.count = 0
     self.layers = list(layers)
     dense_layers = [layer for layer in self.layers if isinstance(layer, Layer)]
+
     if not dense_layers:
       raise ValueError("Сеть должна содержать хотя бы один полносвязный слой")
 
     self.last_layer = dense_layers[-1]
     self.inputs_dim = inputs_dim
     self.loss_function = self.init_loss_function(loss)
+    uses_softmax = self.last_layer.activation is softmax
+    uses_categorical_crossentropy = isinstance(self.loss_function, CE)
+    if uses_softmax != uses_categorical_crossentropy:
+      raise ValueError(
+          "Для softmax требуется categorical_crossentropy, и наоборот"
+      )
     self.optimizer = optimizer if optimizer is not None else SGD(momentum=0)
     self.batch_size = None
     self.final_batch_size = None
@@ -41,6 +48,7 @@ class NeuralNetwork:
         "mse": MSE,
         "categorical_crossentropy": CE,
     }
+
     try:
       return losses[loss_name]()
     except KeyError as error:
@@ -49,11 +57,12 @@ class NeuralNetwork:
   def initialize(self, inputs_dim):
     """Инициализировать слои слева направо, передавая размер выхода."""
     input_size = inputs_dim
+
     for layer in self.layers:
       input_size = layer.initialize(input_size)
 
     output_activation = self.last_layer.activation
-    is_softmax = getattr(output_activation, "__name__", None) == "softmax"
+    is_softmax = output_activation is softmax
     self.type = (
         '"Classification"'
         if output_activation is sigmoid or is_softmax
@@ -63,8 +72,10 @@ class NeuralNetwork:
   def forward(self, X, training=True):
     """Передать вход через все слои и вернуть выход сети."""
     values = X
+
     for layer in self.layers:
       values = layer.forward(values, training=training)
+
     return values
 
   def backward(self, error):
@@ -97,6 +108,18 @@ class NeuralNetwork:
     """
     X = np.asarray(X)
     y = np.asarray(y)
+    for name, value in (
+        ("batch_size", batch_size),
+        ("final_batch_size", final_batch_size),
+    ):
+      if value is not None and (
+          isinstance(value, (bool, np.bool_))
+          or not isinstance(value, (int, np.integer))
+          or value <= 0
+      ):
+        raise ValueError(
+            f"{name} должен быть положительным целым числом или None"
+        )
     self.epochs = epochs
     self.batch_size = batch_size
     self.final_batch_size = final_batch_size
@@ -104,7 +127,7 @@ class NeuralNetwork:
 
     if validation_data is not None:
       X_validation, y_validation = map(np.asarray, validation_data)
-      validation_name = "Test Data"
+      validation_name = "Validation Data"
     else:
       X_validation, y_validation = X, y
       validation_name = "Train Data"
@@ -160,12 +183,11 @@ class NeuralNetwork:
           or (epoch + 1) % report_interval == 0
           or epoch == epochs - 1
       )
+
       if should_report:
-        end = "\n" if epochs < 10 or epoch == epochs - 1 else "\r"
         print(
             f"Epoch {epoch + 1}/{epochs}, Loss: {epoch_loss:.4f}, "
-            f"Validation Loss: {validation_loss:.4f} on {validation_name}",
-            end=end,
+            f"Validation Loss: {validation_loss:.4f} on {validation_name}"
         )
 
     print(f"Training completed with Overall Loss {validation_loss:.4f}")
@@ -178,12 +200,14 @@ class NeuralNetwork:
     """Показать конфигурацию сети и состояние её полносвязных слоёв."""
     print(f"Info:\n{self}")
     print("Last forward:")
+
     for layer in self.layers:
       if not isinstance(layer, Layer):
         continue
 
       print(layer)
       neurons = layer.neurons
+
       if len(neurons) > 4:
         print(neurons[0])
         print(neurons[1])

@@ -7,6 +7,17 @@
 import numpy as np
 
 
+def _sample_truncated_normal(shape, mean, stddev):
+  values = np.random.normal(loc=mean, scale=stddev, size=shape)
+  rejected = np.abs(values - mean) > 2 * stddev
+  while np.any(rejected):
+    values[rejected] = np.random.normal(
+        loc=mean, scale=stddev, size=np.count_nonzero(rejected)
+    )
+    rejected = np.abs(values - mean) > 2 * stddev
+  return values
+
+
 class Initializer:
   """Общий интерфейс callable-инициализатора."""
 
@@ -98,8 +109,7 @@ class TruncatedNormal(Initializer):
     self.stddev = stddev
 
   def __call__(self, shape):
-    values = np.random.normal(loc=self.mean, scale=self.stddev, size=shape)
-    return np.clip(values, self.mean - 2 * self.stddev, self.mean + 2 * self.stddev)
+    return _sample_truncated_normal(shape, self.mean, self.stddev)
 
 
 class Constant(Initializer):
@@ -162,9 +172,7 @@ class VarianceScaling(Initializer):
     scale = self.scale / max(1.0, fan)
     if self.distribution == "truncated_normal":
       stddev = np.sqrt(scale) / 0.87962566103423978
-      return np.clip(
-          np.random.normal(0, stddev, size=shape), -2 * stddev, 2 * stddev
-      )
+      return _sample_truncated_normal(shape, 0.0, stddev)
     elif self.distribution == "normal":
       stddev = np.sqrt(scale)
       return np.random.normal(0, stddev, size=shape)
